@@ -53,9 +53,11 @@ class ReactAgent:
         max_turns: int = 15,
         show_thought: bool = True,
         force_text_mode: bool = False,
+        agents_md: str | None = None,
     ):
         self.llm = llm
         self.registry = registry
+        self.agents_md = agents_md
         self.system_prompt = system_prompt or self._default_system_prompt()
         self.max_turns = max_turns
         self.show_thought = show_thought
@@ -64,7 +66,14 @@ class ReactAgent:
         self.history: list[Step] = []
 
     def _default_system_prompt(self) -> str:
-        return """你是一个有帮助的编程助手。
+        agents_section = f"""
+
+## AGENTS.md 内容（来自仓库）
+{self.agents_md}
+
+""" if self.agents_md else ""
+
+        return f"""你是一个有帮助的编程助手。
 
 工作模式（重要）：
 1. 先分析问题，决定是否需要使用工具
@@ -76,8 +85,8 @@ class ReactAgent:
 3. 如果不需要工具，直接给出完整回答
 
 可用工具：
-{tool_list}
-
+{{tool_list}}
+{agents_section}
 注意：
 - 每个 Action 只能调用一个工具
 - Input 必须是有效的 JSON 格式

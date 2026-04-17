@@ -82,11 +82,13 @@ class ToolRegistry:
 
 
 def build_default_registry() -> ToolRegistry:
-    """构建默认工具注册表（阶段0用）"""
+    """构建默认工具注册表"""
     from codex_journey.tools.calculator import register_calculator_tools
     from codex_journey.tools.time_tools import register_time_tools
+    from codex_journey.tools.file_tools import register_file_tools
 
     registry = ToolRegistry()
     register_calculator_tools(registry)
     register_time_tools(registry)
+    register_file_tools(registry)
     return registry
