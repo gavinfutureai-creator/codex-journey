@@ -3,6 +3,7 @@
 from codex_journey.tools.calculator import register_calculator_tools
 from codex_journey.tools.time_tools import register_time_tools
 from codex_journey.tools.file_tools import register_file_tools
+from codex_journey.tools.quality_tools import register_quality_tools
 
 
 def register_all_tools(registry):
@@ -10,3 +11,4 @@ def register_all_tools(registry):
     register_calculator_tools(registry)
     register_time_tools(registry)
     register_file_tools(registry)
+    register_quality_tools(registry)
