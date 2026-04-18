@@ -236,13 +236,25 @@ class ReactAgent:
         args = {}
 
         # 尝试 JSON 格式
-        json_match = re.search(r"\{[^{}]{1,500}\}", text, re.DOTALL)
-        if json_match:
-            try:
-                args = json.loads(json_match.group())
-                return [{"name": tool_name, "arguments": args}]
-            except json.JSONDecodeError:
-                pass
+        # 查找第一个 { 的位置
+        first_brace = text.find("{")
+        if first_brace != -1:
+            # 从 { 位置开始，找匹配的 }
+            start = first_brace
+            depth = 0
+            for i, ch in enumerate(text[start:], start):
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        # 找到完整 JSON
+                        try:
+                            args = json.loads(text[start:i + 1])
+                            return [{"name": tool_name, "arguments": args}]
+                        except json.JSONDecodeError:
+                            break
+                        break
 
         # 尝试 Input: value 格式（简单参数）
         input_match = re.search(

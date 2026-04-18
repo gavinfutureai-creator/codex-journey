@@ -24,7 +24,11 @@ codex-journey/
 │   │   ├── time_tools.py      # 时间工具
 │   │   ├── file_tools.py      # 文件操作工具
 │   │   └── quality_tools.py   # 质量门禁工具（Lint + Test）
-│   └── harness/              # Harness 框架（待实现）
+│   └── harness/              # 多Agent协作框架
+│       ├── task.py           # 任务定义
+│       ├── file_lock.py      # 文件锁
+│       ├── coordinator.py     # Coordinator Agent
+│       └── worker.py         # Worker Agent
 ├── tests/                    # 测试目录
 ├── AGENTS.md                 # 本文件
 ├── pyproject.toml            # 项目配置
@@ -81,6 +85,50 @@ codex-journey/
 6. **pytest_run** — 每次写完测试必须运行，确保测试通过
 7. **run_tests_and_lint** — 综合检查，用于验证代码质量
 
+## 多Agent协作（阶段3）
+
+### 架构
+
+```
+用户（任务）
+    ↓
+Coordinator（任务分解 + 审核）
+    ↓ 发任务
+Worker A（写代码）
+Worker B（写测试）
+    ↓ 提交结果
+Coordinator（审核）
+    ↓
+通过 → 完成
+失败 → 打回重做
+```
+
+### 组件
+
+| 组件 | 类型 | 作用 |
+|------|------|------|
+| `CoordinatorAgent` | Agent | 任务分解 + 结果审核 |
+| `WorkerAgent` | Agent | 执行具体子任务 |
+| `Task` | 数据类 | 任务定义 |
+| `TaskPlan` | 数据类 | 任务计划 |
+| `FileLock` | 工具 | 防止并发冲突 |
+
+### 使用方式
+
+```python
+from codex_journey.harness import CoordinatorAgent, WorkerAgent, FileLock
+from codex_journey.tools.registry import build_default_registry
+
+# 初始化
+registry = build_default_registry()
+file_lock = FileLock()
+worker = WorkerAgent(registry=registry, file_lock=file_lock)
+coordinator = CoordinatorAgent(registry=registry)
+
+# 执行任务
+plan = coordinator.coordinate("帮我写一个排序模块", worker)
+```
+
 ## 代码规范
 
 - Python: 使用 ruff 检查代码风格
@@ -109,8 +157,14 @@ pip install ruff pytest
 cp .env.example .env
 # 编辑 .env 填入 API key
 
-# 运行
+# 运行 CLI 模式（单 Agent，交互式）
 python -m codex_journey.cli
+
+# 运行单 Agent 模式（指定任务）
+python -m codex_journey.cli "帮我写一个排序函数"
+
+# 运行多 Agent 协作模式（Coordinator + Worker）
+python -m codex_journey.cli "帮我写一个排序函数" --mode multi
 
 # 运行 lint 检查
 ruff check .
@@ -121,7 +175,11 @@ pytest tests/
 
 ## 当前任务
 
-阶段2: 质量门禁
-- [x] 实现 quality_tools.py
+阶段3: Planner-Worker 多Agent
+- [x] 实现 task.py - 任务定义
+- [x] 实现 file_lock.py - 文件锁
+- [x] 实现 coordinator.py - Coordinator Agent
+- [x] 实现 worker.py - Worker Agent
 - [x] 更新 AGENTS.md
-- [ ] 测试质量门禁功能
+- [x] 改造 cli.py - 添加 --mode multi 支持
+- [x] 测试多Agent协作功能

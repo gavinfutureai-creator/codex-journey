@@ -2,10 +2,13 @@
 CodexJourney CLI
 
 命令行入口。
+支持两种模式：
+- single：单 Agent 模式（默认）
+- multi：多 Agent 协作模式（Coordinator + Worker）
 """
 
+import argparse
 import os
-import sys
 
 from dotenv import load_dotenv
 
@@ -43,32 +46,106 @@ def load_agents_md() -> str:
         return ""
 
 
-def main():
-    console.print(f"[bold blue]CodexJourney v{__version__}[/bold blue]")
-    console.print("[dim]基于 Harness 理论的自主编码 Agent[/dim]\n")
-
-    # 0. 加载 AGENTS.md
-    agents_content = load_agents_md()
-
-    # 1. 创建 LLM
-    llm = create_llm(provider="minimax")
-
-    # 2. 创建工具注册表
-    registry = build_default_registry()
-
-    # 3. 创建 Agent（传入 AGENTS.md 内容）
+def run_single_mode(task: str, llm, registry, agents_content: str) -> None:
+    """单 Agent 模式"""
     agent = ReactAgent(
         llm=llm,
         registry=registry,
         show_thought=True,
-        agents_md=agents_content
+        agents_md=agents_content,
     )
 
+    console.print(f"[dim]模式: 单 Agent[/dim]\n")
+    console.print("[bold green]>[/bold green] " + task)
+
+    answer, steps = agent.run(task)
+
+    console.print("\n" + "─" * 50)
+    console.print("[bold]最终回答:[/bold]")
+    console.print(Markdown(answer))
+
+
+def run_multi_mode(task: str, llm_provider: str, registry, agents_content: str) -> None:
+    """多 Agent 协作模式"""
+    from codex_journey.harness import CoordinatorAgent, WorkerAgent
+
+    coordinator = CoordinatorAgent(
+        llm_provider=llm_provider,
+        registry=registry,
+        show_thought=True,
+    )
+    worker = WorkerAgent(
+        llm_provider=llm_provider,
+        registry=registry,
+        show_thought=True,
+    )
+
+    console.print(f"[dim]模式: 多 Agent 协作[/dim]\n")
+    console.print("[bold green]>[/bold green] " + task)
+
+    plan = coordinator.coordinate(task, worker)
+
+    console.print("\n" + "─" * 50)
+    console.print("[bold]任务执行完成[/bold]")
+    console.print(plan.summary())
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="CodexJourney — 基于 Harness 理论的自主编码 Agent",
+    )
+    parser.add_argument(
+        "task",
+        nargs="?",
+        default=None,
+        help="要执行的任务描述（不指定则进入交互模式）",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["single", "multi"],
+        default="single",
+        help="运行模式：single=单 Agent，multi=多 Agent 协作（默认 single）",
+    )
+
+    args = parser.parse_args()
+
+    console.print(f"[bold blue]CodexJourney v{__version__}[/bold blue]")
+    console.print("[dim]基于 Harness 理论的自主编码 Agent[/dim]\n")
+
+    # 加载 AGENTS.md
+    agents_content = load_agents_md()
+
+    # 初始化 LLM 和 registry
+    llm = create_llm(provider="minimax")
+    registry = build_default_registry()
+
     console.print("[dim]可用工具:[/dim]", ", ".join(registry.list_tools()))
+    console.print("")
+
+    if args.task:
+        # 命令行参数模式：执行任务后退出
+        if args.mode == "multi":
+            run_multi_mode(args.task, "minimax", registry, agents_content)
+        else:
+            run_single_mode(args.task, llm, registry, agents_content)
+        return
+
+    # 交互式循环（仅 single 模式支持）
+    if args.mode == "multi":
+        console.print("[yellow]多 Agent 模式需要指定任务，使用:[/yellow]")
+        console.print("  python -m codex_journey.cli <任务描述> --mode multi")
+        return
+
     console.print("[dim]输入问题开始对话，输入 'quit' 退出[/dim]\n")
     console.print("─" * 50)
 
-    # 交互式循环
+    agent = ReactAgent(
+        llm=llm,
+        registry=registry,
+        show_thought=True,
+        agents_md=agents_content,
+    )
+
     while True:
         try:
             user_input = console.input("\n[bold green]>[/bold green] ").strip()
@@ -83,7 +160,6 @@ def main():
             console.print("[yellow]再见[/yellow]")
             break
 
-        # 运行 Agent
         try:
             answer, steps = agent.run(user_input)
 
